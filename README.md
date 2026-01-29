@@ -1,212 +1,227 @@
-# Home Security System
-## Real-Time Face Detection and Recognition Application
+# Facial Recognition Alert System
 
-### 1. Project Description
-
+## Overview
 This project implements a **real-time home security system** based on face detection and face recognition technologies.
-The system continuously captures video from a webcam, detects faces in each frame, recognizes known individuals, and triggers alerts when an **unknown person** is detected for a predefined duration.
-The application is implemented as a **desktop GUI application using Tkinter** and integrates modern deep-learning–based computer vision models.
+The application captures live video from a webcam, detects faces, recognizes known individuals, and triggers alerts when an **unknown person** is detected for a specified amount of time.
 
-### 2. System Architecture
+The system is implemented as a **desktop application in Python** and combines modern deep-learning models with a graphical user interface.
 
-The system follows a modular architecture and consists of the following logical components:
+## Key Features
+* Live webcam stream
+* Face detection using **RetinaFace**
+* Face recognition using **ArcFace embeddings** (via DeepFace)
+* Cosine-distance matching against a local face database
+* Timer-based logic for known and unknown faces
+* Alert system for unknown persons:
 
-1. **Video Acquisition**
-2. **Face Detection**
-3. **Face Recognition**
-4. **Decision Logic (Known / Unknown)**
-5. **Alert System**
-6. **Graphical User Interface (GUI)**
+  * Screenshot capture
+  * Alarm sound
+  * Email notification
+* Simple and extendable architecture
 
-Each component is implemented in a separate module and integrated in the main application loop.
-
-### 3. Technologies and Libraries
-
-* **Python 3**
-* **OpenCV** – webcam access and image processing
-* **RetinaFace** – deep-learning–based face detection
-* **ArcFace (DeepFace)** – face recognition and embedding generation
-* **NumPy** – numerical operations and vector comparison
-* **Tkinter** – desktop graphical user interface
-* **PIL (Pillow)** – image conversion for GUI display
-* **Threading & Queue** – parallel processing and thread-safe frame exchange
-* **Email & Audio utilities** – alert notifications
-
-### 4. Face Detection Module
-
-Face detection is performed using **RetinaFace**, which provides high accuracy and robustness under different lighting and pose conditions.
-The function:
-
-```python
-detect_faces_retinaface(frame)
+## Project Structure
 ```
-returns bounding boxes in the form:
-
-```
-(x1, y1, x2, y2, confidence)
+project/
+├── main.py                 # Main application (video loop + logic)
+├── detection.py            # Face detection (RetinaFace)
+├── recognition.py          # Face recognition (ArcFace)
+├── alert.py                # Alarm sound and email notifications
+├── build_gallery_json.py         # One-time face enrollment script
+├── gallery_db.json         # Face embeddings database
+├── Alarm.wav               # Alarm sound
+├── enroll/                 # Input images for enrollment
+└── unknown_captures/       # Saved screenshots of unknown faces
 ```
 
-To ensure safe cropping, bounding boxes are clamped to image boundaries using:
-
-```python
-clamp_box(x1, y1, x2, y2, width, height)
-```
-
-This prevents index errors and invalid image slices.
-
-### 5. Face Recognition Module (ArcFace)
-
-Face recognition is based on **ArcFace embeddings**, which are generated using the DeepFace framework.
-
-Workflow:
-
-1. A detected face region is cropped from the frame
-2. An embedding vector is computed using ArcFace
-3. The embedding is compared against stored embeddings using **cosine distance**
-
-```python
-embed_face_arcface(face_image)
-identify(embedding, gallery, threshold)
-```
-
-The recognition result is:
-
-* a **person’s name** if the distance is below the threshold
-* **"Unknown"** otherwise
-
-The recognition threshold is loaded dynamically from `gallery_db.json`.
-
-### 6. Face Database
-
-Known faces are stored in a local JSON file:
+## Dependencies
+### External Libraries (pip)
 
 ```
+opencv-python
+numpy
+retinaface
+deepface
+playsound
+```
+Install them with:
+
+```bash
+pip install opencv-python numpy retinaface deepface playsound
+```
+
+> Note: `deepface` automatically installs additional dependencies such as TensorFlow.
+
+### Standard Python Modules
+
+The project also uses standard Python modules such as:
+`os`, `time`, `datetime`, `threading`, `json`, `smtplib`, `email.message`.
+
+## User Guide
+### 1. Prerequisites
+
+* Python **3.9-3.11** (recommended: Python 3.10)
+* A working **webcam**
+* Internet connection (required on first run to download models)
+
+### 2. Required Files
+Make sure the following files are present in the project directory:
+
+```
+main.py
+detection.py
+recognition.py
+alert.py
 gallery_db.json
+Alarm.wav
+```
+The folder `unknown_captures/` will be created automatically if it does not exist.
+
+### 3. Email Alert Configuration
+To enable email alerts, set the following environment variables:
+
+* `ALERT_EMAIL` — sender email address
+* `ALERT_EMAIL_PASS` — email password or app password
+* `ALERT_TO_EMAIL` — recipient email address
+
+Example (Windows PowerShell):
+
+```powershell
+setx ALERT_EMAIL "youremail@gmail.com"
+setx ALERT_EMAIL_PASS "your_app_password"
+setx ALERT_TO_EMAIL "recipient@gmail.com"
+```
+If these variables are not set, the application will still run, but email alerts will be skipped.
+
+### 4. Running the Application
+From the project directory, run:
+
+```bash
+python main.py
+```
+After launch:
+
+* A window opens with the live camera feed
+* Faces are detected and labeled
+* Known persons are recognized
+* Unknown persons trigger alerts after a delay
+
+### 5. Controls
+## Adding Your Own Face (Enrollment Guide)
+
+To recognize a new person, the system must first generate face embeddings and store them in the local database (`gallery_db.json`).
+This is done using a **one-time enrollment script** based on **RetinaFace** and **ArcFace**.
+
+### 1. Prepare Enrollment Images
+
+Create a folder called `enroll` in the project directory.
+
+Inside it, create **one subfolder per person**, named with the person’s identity:
+
+```
+enroll/
+├── Aidin/
+│   ├── img1.jpg
+│   ├── img2.jpg
+│   └── img3.jpg
+├── Myktybek/
+│   ├── photo1.png
+│   └── photo2.jpg
 ```
 
-Structure:
+**Recommendations:**
+
+* Use **3–5 images per person**
+* Each image should contain **only one face**
+* Use different lighting conditions if possible
+* Supported format: `.jpg`
+
+### 2. Run the Enrollment Script
+
+Run the enrollment script:
+
+```bash
+python enroll_faces.py
+```
+
+### 3. Enrollment Process
+
+For each image, the script:
+
+1. Loads the image
+2. Detects the face using RetinaFace
+3. Crops the most confident face
+4. Generates an **ArcFace embedding**
+5. Saves embeddings to `gallery_db.json`
+
+Example database structure:
 
 ```json
 {
+  "model": "ArcFace",
+  "metric": "cosine",
   "threshold": 0.40,
   "people": {
-    "PersonName": [
-      [embedding_1],
-      [embedding_2]
-    ]
+    "Aidin": [[...], [...]],
+    "Myktybek": [[...]]
   }
 }
 ```
 
-This allows:
+---
 
-* flexible threshold tuning
-* multiple embeddings per person
-* easy extension without retraining models
+### 4. Error Handling During Enrollment
 
-### 7. Decision Logic
+The script automatically skips:
 
-The system distinguishes between three states:
+* Images without detectable faces
+* Corrupted images
+* Invalid face crops
+At least **one valid embedding** is required to add a person.
 
-#### 7.1 Known Face
+### 5. Using the New Face
 
-* At least one recognized person is present
-* After `KNOWN_WELCOME_SECONDS`, a **welcome message** is shown:
+After `gallery_db.json` is generated:
 
-  ```
-  Welcome, <Name>!
-  ```
-* Unknown timers are reset
+1. Ensure it is located next to `main.py`
+2. Run the main application again:
 
-#### 7.2 Unknown Face
-
-* Only unknown faces are present
-* A timer starts
-* Status shows elapsed detection time
-
-#### 7.3 Alert Trigger
-
-If an unknown face remains present for:
-
-```
-UNKNOWN_ALERT_SECONDS
+```bash
+python main.py
 ```
 
-the system:
+The newly enrolled person will now be recognized in real time.
 
-1. Saves a screenshot to `unknown_captures/`
-2. Plays an alarm sound
-3. Sends an email notification with the image attached
+---
 
+## How the System Works (Pipeline)
 
-### 8. Alert System
+1. Capture frame from webcam (OpenCV)
+2. Detect faces using RetinaFace
+3. Crop detected faces
+4. Generate ArcFace embeddings
+5. Compare embeddings using cosine distance
+6. Decide **Known / Unknown**
+7. Trigger alerts if needed
+8. Display results in real time
+9. 
+## Output
 
-The alert system is implemented asynchronously to avoid blocking the main video loop.
+When an unknown person triggers an alert, the system:
 
-Alerts include:
+* Saves a screenshot to:
 
-* **Audio alarm** (`Alarm.wav`)
-* **Email notification**
-* **Image evidence**
+  ```
+  unknown_captures/Unknown_YYYY-MM-DD_HH-MM-SS.png
+  ```
+* Plays an alarm sound
+* Sends an email notification (if configured)
 
+## Notes
 
-### 9. Graphical User Interface (GUI)
+* Accuracy can be improved with more enrollment images
+* Performance depends on hardware (GPU recommended for best results)
 
-The GUI is built using **Tkinter** and follows a modern dark theme.
+## Conclusion
 
-Displayed elements:
-
-* Live video stream
-* Bounding boxes and recognition labels
-* System status indicator (colored dot)
-* FPS counter
-* Timestamp
-
-
-### 10. Performance Considerations
-
-To ensure real-time performance:
-
-* Frames are resized to `FRAME_WIDTH`
-* Recognition is executed every `PROCESS_EVERY_N_FRAMES`
-* Detection and recognition run in a background thread
-* GUI rendering is decoupled from video processing
-
-FPS is calculated and displayed in real time.
-
-
-### 11. Error Handling and Stability
-
-The system includes:
-
-* Safe thread termination
-* Camera release on exit
-* Protection against empty frames
-* Graceful handling of missing database or email credentials
-
-
-### 12. Use Cases
-
-* Home entrance monitoring
-* Office access supervision
-* Educational demonstration of AI-based security systems
-* Prototype for further IoT or smart-home integration
-
-
-### 13. Conclusion
-
-This project demonstrates a **complete end-to-end AI application**, combining computer vision, deep learning, real-time processing, and GUI design.
-
-It showcases:
-
-* Practical application of face detection and recognition
-* Modular software architecture
-* Real-time constraints handling
-* Integration of AI with user-facing systems
-
-The system can be easily extended with:
-
-* GPU acceleration
-* Additional detectors
-* Cloud-based databases
-* Mobile or web interfaces
+This project demonstrates a complete **end-to-end AI-based security system**, combining computer vision, deep learning, real-time processing, and user interaction.
+It can be extended further for smart-home, IoT, or cloud-based applications.
