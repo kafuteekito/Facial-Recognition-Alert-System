@@ -1,17 +1,26 @@
 import os, json, time, datetime, cv2
 import numpy as np
+from threading import Thread
+from playsound import playsound
 from retinaface import RetinaFace
 from deepface import DeepFace
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_JSON = os.path.join(BASE_DIR, "gallery_db.json")
 UNKNOWN_DIR = os.path.join(BASE_DIR, "unknown_captures")
+ALARM_WAV_PATH = os.path.join(BASE_DIR, "Alarm.wav")
 
 MODEL_NAME = "VGG-Face"
 DEFAULT_THRESHOLD = 0.40
 UNKNOWN_ALERT_SECONDS = 10
 
 os.makedirs(UNKNOWN_DIR, exist_ok=True)
+
+def play_alarm():
+    try:
+        playsound(ALARM_WAV_PATH)
+    except Exception as e:
+        print(f"[ALARM ERROR] {e}")
 
 def cosine_distance(a, b):
     a = a.astype(np.float32); b = b.astype(np.float32)
@@ -74,7 +83,7 @@ def main():
 
     unknown_detected = False
     unknown_start_time = None
-    unknown_saved = False
+    unknown_alerted = False
 
     while True:
         ok, frame = cap.read()
@@ -117,25 +126,25 @@ def main():
             if not unknown_detected:
                 unknown_detected = True
                 unknown_start_time = now
-                unknown_saved = False
+                unknown_alerted = False
 
             elapsed = now - (unknown_start_time or now)
             cv2.putText(annotated, f"UNKNOWN {elapsed:.1f}s / {UNKNOWN_ALERT_SECONDS}s", (10, 40),
                         cv2.FONT_HERSHEY_DUPLEX, 0.9, (0, 0, 255), 2)
 
-            if (not unknown_saved) and elapsed >= UNKNOWN_ALERT_SECONDS:
+            if (not unknown_alerted) and elapsed >= UNKNOWN_ALERT_SECONDS:
                 ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 filename = os.path.join(UNKNOWN_DIR, f"Unknown_{ts}.png")
                 cv2.imwrite(filename, annotated)
-                unknown_saved = True
-                cv2.putText(annotated, "Saved unknown capture", (10, 80),
-                            cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 255), 2)
+
+                Thread(target=play_alarm, daemon=True).start()
+                unknown_alerted = True
         else:
             unknown_detected = False
             unknown_start_time = None
-            unknown_saved = False
+            unknown_alerted = False
 
-        cv2.imshow("Unknown Save", annotated)
+        cv2.imshow("Alarm", annotated)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q") or key == 27:
             break
